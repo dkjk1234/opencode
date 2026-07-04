@@ -21,14 +21,15 @@ function tauriDir(id: string) {
   }
 }
 
-// The Tauri app identifier changes between dev/beta/prod builds.
+// The legacy Tauri app identifier changes between dev/beta/prod builds.
+// Keep this branded so CodexShare does not silently import upstream app user data.
 const TAURI_APP_IDS: Record<string, string> = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "com.codexshare.desktop.dev",
+  beta: "com.codexshare.desktop.beta",
+  prod: "com.codexshare.desktop",
 }
 function tauriAppId() {
-  return app.isPackaged ? TAURI_APP_IDS[CHANNEL] : "ai.opencode.desktop.dev"
+  return app.isPackaged ? TAURI_APP_IDS[CHANNEL] : "com.codexshare.desktop.dev"
 }
 
 // Migrate a single Tauri .dat file into the corresponding electron-store.

@@ -12,6 +12,11 @@ const channel = (() => {
   return "dev"
 })()
 
+const yourserviceConsoleUrl = (process.env.YOURSERVICE_CONSOLE_URL ||
+  process.env.VITE_YOURSERVICE_CONSOLE_URL ||
+  "http://127.0.0.1:8788").replace(/\/+$/, "")
+const yourserviceInstallUrl = process.env.YOURSERVICE_INSTALL_URL || "https://opencode.ai/install"
+
 const nodePtyPkg = `@lydell/node-pty-${process.platform}-${process.arch}`
 
 const sentry =
@@ -35,6 +40,8 @@ export default defineConfig({
   main: {
     define: {
       "import.meta.env.OPENCODE_CHANNEL": JSON.stringify(channel),
+      "import.meta.env.YOURSERVICE_CONSOLE_URL": JSON.stringify(yourserviceConsoleUrl),
+      "import.meta.env.YOURSERVICE_INSTALL_URL": JSON.stringify(yourserviceInstallUrl),
     },
     build: {
       rollupOptions: {
@@ -91,6 +98,9 @@ const require = __cjs_mod__.createRequire(import.meta.url);
     },
   },
   renderer: {
+    define: {
+      "import.meta.env.VITE_YOURSERVICE_CONSOLE_URL": JSON.stringify(yourserviceConsoleUrl),
+    },
     plugins: [appPlugin, sentry],
     publicDir: "../../../app/public",
     root: "src/renderer",

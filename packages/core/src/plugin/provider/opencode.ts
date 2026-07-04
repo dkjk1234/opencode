@@ -13,7 +13,11 @@ import { ConfigProviderV1 } from "../../v1/config/provider"
 import { ConfigProviderOptionsV1 } from "../../v1/config/provider-options"
 import { ConfigV1 } from "../../v1/config/config"
 
-const defaultServer = "https://console.opencode.ai"
+const defaultServer = () =>
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+    /\/+$/,
+    "",
+  )
 const clientID = "opencode-cli"
 const methodID = Integration.MethodID.make("device")
 const RemoteResponse = Schema.Struct({ config: ConfigV1.Info })
@@ -44,17 +48,18 @@ function oauth(http: HttpClient.HttpClient) {
     },
     authorize: () =>
       Effect.gen(function* () {
-        const device = yield* post(http, `${defaultServer}/auth/device/code`, { client_id: clientID }, Device)
+        const server = defaultServer()
+        const device = yield* post(http, `${server}/auth/device/code`, { client_id: clientID }, Device)
         return {
           mode: "auto" as const,
-          url: `${defaultServer}${device.verification_uri_complete}`,
+          url: `${server}${device.verification_uri_complete}`,
           instructions: `Enter code: ${device.user_code}`,
-          callback: poll(http, defaultServer, device.device_code, Duration.seconds(device.interval)),
+          callback: poll(http, server, device.device_code, Duration.seconds(device.interval)),
         }
       }),
     refresh: (credential) =>
       Effect.gen(function* () {
-        const server = typeof credential.metadata?.server === "string" ? credential.metadata.server : defaultServer
+        const server = typeof credential.metadata?.server === "string" ? credential.metadata.server : defaultServer()
         const token = yield* post(
           http,
           `${server}/auth/device/token`,

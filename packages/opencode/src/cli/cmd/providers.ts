@@ -36,6 +36,12 @@ const cliTry = <Value>(message: string, fn: () => PromiseLike<Value>) =>
     catch: (error) => new CliError({ message: message + errorMessage(error) }),
   })
 
+const consoleUrl = () =>
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+    /\/+$/,
+    "",
+  )
+
 const handlePluginAuth = Effect.fn("Cli.providers.pluginAuth")(function* (
   plugin: { auth: PluginAuth },
   provider: string,
@@ -464,7 +470,7 @@ export const ProvidersLoginCommand = effectCmd({
     }
 
     if (provider === "opencode") {
-      yield* Prompt.log.info("Create an api key at https://opencode.ai/auth")
+      yield* Prompt.log.info(`Create an api key at ${consoleUrl()}/auth`)
     }
 
     if (provider === "vercel") {

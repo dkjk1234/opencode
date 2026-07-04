@@ -1,11 +1,22 @@
 import { describe, expect, test } from "bun:test"
 import stripAnsi from "strip-ansi"
 
-import { defaultConsoleUrl, formatAccountLabel, formatOrgLine } from "../../src/cli/cmd/account"
+import { defaultConsoleUrl, formatAccountLabel, formatOrgLine, resolveConsoleUrl } from "../../src/cli/cmd/account"
 
 describe("console account display", () => {
-  test("uses console.opencode.ai as the default login URL", () => {
-    expect(defaultConsoleUrl).toBe("https://console.opencode.ai")
+  test("uses the local service gateway as the default login URL", () => {
+    expect(defaultConsoleUrl).toBe("http://127.0.0.1:8788")
+  })
+
+  test("allows YOURSERVICE_CONSOLE_URL to override the default login URL", () => {
+    const previous = process.env.YOURSERVICE_CONSOLE_URL
+    process.env.YOURSERVICE_CONSOLE_URL = "https://console.codexshare.example/"
+    try {
+      expect(resolveConsoleUrl()).toBe("https://console.codexshare.example")
+    } finally {
+      if (previous === undefined) delete process.env.YOURSERVICE_CONSOLE_URL
+      else process.env.YOURSERVICE_CONSOLE_URL = previous
+    }
   })
 
   test("includes the account url in account labels", () => {

@@ -23,6 +23,7 @@ export async function spawnWslSidecar(
   const port = await allocatePort()
   const password = randomUUID()
   const username = "opencode"
+  const consoleUrl = process.env.OPENCODE_CONSOLE_URL
   const script = [
     "set -euo pipefail",
     'cd "$HOME" || cd /',
@@ -31,6 +32,7 @@ export async function spawnWslSidecar(
     "export WSLENV=",
     "export OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER=true",
     "export OPENCODE_CLIENT=desktop",
+    ...(consoleUrl ? [`export OPENCODE_CONSOLE_URL=${shellEscape(consoleUrl)}`] : []),
     `export OPENCODE_SERVER_USERNAME=${shellEscape(username)}`,
     `export OPENCODE_SERVER_PASSWORD=${shellEscape(password)}`,
     'export XDG_STATE_HOME="$HOME/.local/state"',

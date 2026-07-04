@@ -30,6 +30,9 @@ import { useLanguage } from "@/context/language"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { CustomProviderForm } from "./dialog-custom-provider"
 
+const serviceConsoleUrl = () =>
+  (import.meta.env.VITE_YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(/\/+$/, "")
+
 const CUSTOM_ID = "_custom"
 
 export function useProviderConnectController(options: { onBack?: () => void } = {}) {
@@ -590,8 +593,8 @@ function ProviderConnection(props: {
               <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line2")}</div>
               <div class="text-14-regular text-text-base">
                 {language.t("provider.connect.opencodeZen.visit.prefix")}
-                <Link href="https://opencode.ai/zen" tabIndex={-1}>
-                  {language.t("provider.connect.opencodeZen.visit.link")}
+                <Link href={`${serviceConsoleUrl()}/zen`} tabIndex={-1}>
+                  {`${serviceConsoleUrl()}/zen`}
                 </Link>
                 {language.t("provider.connect.opencodeZen.visit.suffix")}
               </div>

@@ -236,5 +236,34 @@ describe("installation", () => {
         yield* Installation.use.upgrade("curl", "9.9.9")
       }),
     )
+
+    testEffect(
+      testLayer(
+        (request) => {
+          expect(request.url).toBe("https://downloads.yourservice.example.com/opencode/install")
+          return new Response("install script", { status: 200 })
+        },
+        (cmd, args) => {
+          if (cmd === "bash" && args[0] === "--version") return "GNU bash"
+          if (cmd === "bash") return "ok"
+          return ""
+        },
+      ),
+    ).effect("uses branded install script URL for curl upgrades", () =>
+      Effect.gen(function* () {
+        const previousOpencodeInstallUrl = process.env.OPENCODE_INSTALL_URL
+        const previousYourserviceInstallUrl = process.env.YOURSERVICE_INSTALL_URL
+        delete process.env.OPENCODE_INSTALL_URL
+        process.env.YOURSERVICE_INSTALL_URL = "https://downloads.yourservice.example.com/opencode/install///"
+        try {
+          yield* Installation.use.upgrade("curl", "9.9.9")
+        } finally {
+          if (previousOpencodeInstallUrl === undefined) delete process.env.OPENCODE_INSTALL_URL
+          else process.env.OPENCODE_INSTALL_URL = previousOpencodeInstallUrl
+          if (previousYourserviceInstallUrl === undefined) delete process.env.YOURSERVICE_INSTALL_URL
+          else process.env.YOURSERVICE_INSTALL_URL = previousYourserviceInstallUrl
+        }
+      }),
+    )
   })
 })

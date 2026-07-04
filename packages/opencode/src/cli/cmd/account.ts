@@ -15,7 +15,13 @@ const dim = (value: string) => UI.Style.TEXT_DIM + value + UI.Style.TEXT_NORMAL
 
 const activeSuffix = (isActive: boolean) => (isActive ? dim(" (active)") : "")
 
-export const defaultConsoleUrl = "https://console.opencode.ai"
+export const resolveConsoleUrl = () =>
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+    /\/+$/,
+    "",
+  )
+
+export const defaultConsoleUrl = resolveConsoleUrl()
 
 export const formatAccountLabel = (account: { email: string; url: string }, isActive: boolean) =>
   `${account.email} ${dim(account.url)}${activeSuffix(isActive)}`
@@ -185,7 +191,7 @@ export const LoginCommand = effectCmd({
     }),
   handler: Effect.fn("Cli.account.login")(function* (args) {
     UI.empty()
-    yield* Effect.orDie(loginEffect(args.url ?? defaultConsoleUrl))
+    yield* Effect.orDie(loginEffect(args.url ?? resolveConsoleUrl()))
   }),
 })
 

@@ -1,5 +1,7 @@
 interface ImportMetaEnv {
   readonly OPENCODE_CHANNEL: string
+  readonly YOURSERVICE_CONSOLE_URL?: string
+  readonly YOURSERVICE_INSTALL_URL?: string
 }
 
 interface ImportMeta {

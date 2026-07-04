@@ -1,13 +1,13 @@
 {
-  "name": "@opencode-ai/desktop",
+  "name": "@codexshare/opencode-desktop",
   "private": true,
   "version": "1.17.13",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://opencode.ai",
+  "homepage": "https://codexshare.local",
   "author": {
-    "name": "OpenCode",
-    "email": "hello@opencode.ai"
+    "name": "CodexShare",
+    "email": "support@codexshare.local"
   },
   "scripts": {
     "typecheck": "tsgo -b",

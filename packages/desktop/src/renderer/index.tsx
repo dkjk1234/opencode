@@ -30,6 +30,8 @@ import "./styles.css"
 import { Splash } from "@opencode-ai/ui/logo"
 import { useTheme } from "@opencode-ai/ui/theme/context"
 
+const notificationIcon = new URL("../../resources/icons/icon.png", import.meta.url).toString()
+
 const root = document.getElementById("root")
 if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
   throw new Error(t("error.dev.rootNotFound"))
@@ -250,7 +252,7 @@ const createPlatform = (windowState: DesktopWindowState): Platform => {
 
       const notification = new Notification(title, {
         body: description ?? "",
-        icon: "https://opencode.ai/favicon-96x96-v3.png",
+        icon: notificationIcon,
       })
       notification.onclick = () => {
         void window.api.showWindow()

@@ -12,6 +12,7 @@ import {
   pollWslHealth,
   wslServerIdsToStartOnInitialize,
 } from "./startup"
+import { resolveWslOpencodeInstallUrl, wslOpencodeInstallScript } from "./runtime"
 import { createWslServersController, type WslServerConfig } from "./servers"
 
 let persistedServers: WslServerConfig[] = []
@@ -102,6 +103,21 @@ test("validates WSL IPC identifiers at the module boundary", () => {
 test("derives a required Windows restart from the post-install runtime probe", () => {
   expect(pendingRestartAfterWslInstall({ available: false, version: null, error: "WSL unavailable" })).toBe(true)
   expect(pendingRestartAfterWslInstall({ available: true, version: "WSL version: 2.6.1", error: null })).toBe(false)
+})
+
+test("allows branded WSL installs to use a forked OpenCode installer", () => {
+  const previous = process.env.OPENCODE_INSTALL_URL
+  process.env.OPENCODE_INSTALL_URL = "https://codexshare.example/install"
+
+  try {
+    expect(resolveWslOpencodeInstallUrl()).toBe("https://codexshare.example/install")
+    expect(wslOpencodeInstallScript("1.2.3")).toBe(
+      "curl -fsSL 'https://codexshare.example/install' | bash -s -- --version '1.2.3'",
+    )
+  } finally {
+    if (previous === undefined) delete process.env.OPENCODE_INSTALL_URL
+    else process.env.OPENCODE_INSTALL_URL = previous
+  }
 })
 
 test("ignores stale background OpenCode checks after removing a WSL server", async () => {

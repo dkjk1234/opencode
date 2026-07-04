@@ -32,6 +32,19 @@ export type RunWslOptions = {
 
 const DEFAULT_WSL_TIMEOUT_MS = 20_000
 const DEFAULT_WSL_INSTALL_TIMEOUT_MS = 15 * 60_000
+const DEFAULT_OPENCODE_INSTALL_URL = "https://opencode.ai/install"
+
+export function resolveWslOpencodeInstallUrl() {
+  return (
+    process.env.OPENCODE_INSTALL_URL?.trim() ||
+    import.meta.env.YOURSERVICE_INSTALL_URL?.trim() ||
+    DEFAULT_OPENCODE_INSTALL_URL
+  )
+}
+
+export function wslOpencodeInstallScript(version: string, installUrl = resolveWslOpencodeInstallUrl()) {
+  return `curl -fsSL ${shellEscape(installUrl)} | bash -s -- --version ${shellEscape(version)}`
+}
 
 export function wslArgs(args: string[], distro?: string | null, user?: string | null) {
   return [...(distro ? ["-d", distro] : []), ...(user ? ["--user", user] : []), "--", ...args]
@@ -262,10 +275,7 @@ export async function installWslDistro(name: string, opts?: RunWslOptions) {
 export async function installWslOpencode(version: string, distro: string, opts?: RunWslOptions) {
   return runInteractiveCommand(
     resolveSystem32Command("wsl.exe"),
-    wslArgs(
-      ["bash", "-lc", `curl -fsSL https://opencode.ai/install | bash -s -- --version ${shellEscape(version)}`],
-      distro,
-    ),
+    wslArgs(["bash", "-lc", wslOpencodeInstallScript(version)], distro),
     withTimeout(opts, DEFAULT_WSL_INSTALL_TIMEOUT_MS),
     DEFAULT_WSL_INSTALL_TIMEOUT_MS,
   )

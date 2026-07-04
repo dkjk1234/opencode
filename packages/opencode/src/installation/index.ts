@@ -44,6 +44,13 @@ export function userAgent(client = "cli") {
 
 export const USER_AGENT = userAgent()
 
+export function installScriptUrl() {
+  return (process.env.OPENCODE_INSTALL_URL || process.env.YOURSERVICE_INSTALL_URL || "https://opencode.ai/install").replace(
+    /\/+$/,
+    "",
+  )
+}
+
 export function isPreview() {
   return InstallationChannel !== "latest"
 }
@@ -144,7 +151,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
 
     const upgradeCurl = Effect.fnUntraced(
       function* (target: string) {
-        const response = yield* httpOk.execute(HttpClientRequest.get("https://opencode.ai/install"))
+        const response = yield* httpOk.execute(HttpClientRequest.get(installScriptUrl()))
         const body = yield* response.text
         const bodyBytes = new TextEncoder().encode(body)
         const shell = yield* upgradeScriptShell()
