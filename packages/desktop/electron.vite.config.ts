@@ -14,7 +14,7 @@ const channel = (() => {
 
 const yourserviceConsoleUrl = (process.env.YOURSERVICE_CONSOLE_URL ||
   process.env.VITE_YOURSERVICE_CONSOLE_URL ||
-  "http://127.0.0.1:8788").replace(/\/+$/, "")
+  "https://llms.ai.kr/opencode-gateway").replace(/\/+$/, "")
 const yourserviceInstallUrl = process.env.YOURSERVICE_INSTALL_URL || "https://opencode.ai/install"
 
 const nodePtyPkg = `@lydell/node-pty-${process.platform}-${process.arch}`

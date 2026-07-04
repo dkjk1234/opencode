@@ -16,7 +16,7 @@ const dim = (value: string) => UI.Style.TEXT_DIM + value + UI.Style.TEXT_NORMAL
 const activeSuffix = (isActive: boolean) => (isActive ? dim(" (active)") : "")
 
 export const resolveConsoleUrl = () =>
-  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(
     /\/+$/,
     "",
   )

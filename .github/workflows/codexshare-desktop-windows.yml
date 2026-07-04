@@ -24,6 +24,8 @@ jobs:
     env:
       OPENCODE_CHANNEL: dev
       OPENCODE_VERSION: 1.17.13
+      YOURSERVICE_CONSOLE_URL: https://llms.ai.kr/opencode-gateway
+      VITE_YOURSERVICE_CONSOLE_URL: https://llms.ai.kr/opencode-gateway
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
       NODE_OPTIONS: --max-old-space-size=4096
 

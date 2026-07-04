@@ -14,7 +14,7 @@ import { ConfigProviderOptionsV1 } from "../../v1/config/provider-options"
 import { ConfigV1 } from "../../v1/config/config"
 
 const defaultServer = () =>
-  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(
     /\/+$/,
     "",
   )

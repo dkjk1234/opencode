@@ -54,7 +54,7 @@ const APP_IDS: Record<string, string> = {
   prod: "com.codexshare.desktop",
 }
 const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
-const DEFAULT_CONSOLE_URL = (import.meta.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(/\/$/, "")
+const DEFAULT_CONSOLE_URL = (import.meta.env.YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(/\/$/, "")
 const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
 
 let logger: ReturnType<typeof initLogging>

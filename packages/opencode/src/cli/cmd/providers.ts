@@ -37,7 +37,7 @@ const cliTry = <Value>(message: string, fn: () => PromiseLike<Value>) =>
   })
 
 const consoleUrl = () =>
-  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(
     /\/+$/,
     "",
   )

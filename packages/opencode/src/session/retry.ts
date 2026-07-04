@@ -8,7 +8,7 @@ import { isRecord } from "@/util/record"
 export type Err = ReturnType<NamedError["toObject"]>
 
 const serviceConsoleUrl = () =>
-  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(
+  (process.env.OPENCODE_CONSOLE_URL || process.env.YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(
     /\/+$/,
     "",
   )

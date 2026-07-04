@@ -31,7 +31,7 @@ import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { CustomProviderForm } from "./dialog-custom-provider"
 
 const serviceConsoleUrl = () =>
-  (import.meta.env.VITE_YOURSERVICE_CONSOLE_URL || "http://127.0.0.1:8788").replace(/\/+$/, "")
+  (import.meta.env.VITE_YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(/\/+$/, "")
 
 const CUSTOM_ID = "_custom"
 

@@ -4,8 +4,8 @@ import stripAnsi from "strip-ansi"
 import { defaultConsoleUrl, formatAccountLabel, formatOrgLine, resolveConsoleUrl } from "../../src/cli/cmd/account"
 
 describe("console account display", () => {
-  test("uses the local service gateway as the default login URL", () => {
-    expect(defaultConsoleUrl).toBe("http://127.0.0.1:8788")
+  test("uses the CodexShare service gateway as the default login URL", () => {
+    expect(defaultConsoleUrl).toBe("https://llms.ai.kr/opencode-gateway")
   })
 
   test("allows YOURSERVICE_CONSOLE_URL to override the default login URL", () => {
