@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import stripAnsi from "strip-ansi"
 
-import { defaultConsoleUrl, formatAccountLabel, formatOrgLine, resolveConsoleUrl } from "../../src/cli/cmd/account"
+import { defaultConsoleUrl, formatAccountLabel, formatBillingPlanLabel, formatOrgLine, resolveConsoleUrl } from "../../src/cli/cmd/account"
 
 describe("console account display", () => {
   test("uses the CodexShare service gateway as the default login URL", () => {
@@ -37,5 +37,12 @@ describe("console account display", () => {
         formatOrgLine({ email: "one@example.com", url: "https://one.example.com" }, { id: "org-1", name: "One" }, true),
       ),
     ).toBe("  ● One  one@example.com  https://one.example.com  org-1")
+  })
+
+  test("formats billing plan labels", () => {
+    const label = formatBillingPlanLabel({ id: "starter", name: "Starter", credits: 5000, amount: 990, currency: "usd" })
+    expect(label).toContain("Starter")
+    expect(label).toContain("9.90")
+    expect(label).toContain("5,000 credits")
   })
 })

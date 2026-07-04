@@ -6,6 +6,8 @@ import { AccountID, OrgID, PollExpired, type PollResult, type AccountError } fro
 import { effectCmd } from "../effect-cmd"
 import * as Prompt from "../effect/prompt"
 import open from "open"
+import { randomUUID } from "node:crypto"
+import { Billing, type BillingPlanSummary } from "@/account/billing"
 
 const openBrowser = (url: string) => Effect.promise(() => open(url).catch(() => undefined))
 
@@ -37,6 +39,14 @@ export const formatOrgLine = (
   const dot = isActive ? UI.Style.TEXT_SUCCESS + "●" + UI.Style.TEXT_NORMAL : " "
   const name = isActive ? UI.Style.TEXT_HIGHLIGHT_BOLD + org.name + UI.Style.TEXT_NORMAL : org.name
   return `  ${dot} ${name}  ${dim(account.email)}  ${dim(account.url)}  ${dim(org.id)}`
+}
+
+export const formatBillingPlanLabel = (plan: BillingPlanSummary) => {
+  const amount = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: plan.currency || "usd",
+  }).format((plan.amount || 0) / 100)
+  return `${plan.name || plan.id} - ${amount} - ${plan.credits.toLocaleString()} credits`
 }
 
 const isActiveOrgChoice = (
@@ -180,6 +190,64 @@ const openEffect = Effect.fn("open")(function* () {
   yield* Prompt.outro("Opened " + url)
 })
 
+const billingEffect = Effect.fn("billing")(function* (planID?: string) {
+  const service = yield* Account.Service
+  const active = yield* service.active()
+  if (Option.isNone(active)) return yield* println("No active account")
+
+  const account = active.value
+  const accessToken = yield* service.token(account.id)
+  if (Option.isNone(accessToken)) return yield* println("No usable console token. Run `opencode console login` again.")
+
+  yield* Prompt.intro("Billing")
+  const plansOption = yield* Billing.plans().pipe(
+    Effect.catch((error) => Effect.fail(new Error(`Could not load billing plans: ${error.message}`))),
+  )
+  const plans = Option.getOrElse(plansOption, () => [] as BillingPlanSummary[])
+  if (!plans.length) {
+    yield* Prompt.log.warn("No billing plans are configured on " + account.url)
+    return yield* Prompt.outro("Billing is not enabled yet")
+  }
+
+  let selectedPlanID = planID?.trim()
+  if (!selectedPlanID) {
+    if (plans.length === 1) {
+      selectedPlanID = plans[0].id
+    } else {
+      const selected = yield* Prompt.select({
+        message: "Select a credit plan",
+        options: plans.map((plan) => ({ value: plan.id, label: formatBillingPlanLabel(plan) })),
+      })
+      if (Option.isNone(selected)) return yield* Prompt.outro("Canceled")
+      selectedPlanID = selected.value
+    }
+  }
+
+  const selectedPlan = plans.find((plan) => plan.id === selectedPlanID)
+  if (!selectedPlan) {
+    yield* Prompt.log.error(`Unknown billing plan: ${selectedPlanID}`)
+    yield* Prompt.log.info("Available plans: " + plans.map((plan) => plan.id).join(", "))
+    return yield* Prompt.outro("Billing checkout was not created")
+  }
+
+  const checkout = yield* Billing.checkout({
+    planID: selectedPlan.id,
+    idempotencyKey: `opencode-${Date.now()}-${randomUUID()}`,
+  }).pipe(Effect.catch((error) => Effect.fail(new Error(`Could not create billing checkout: ${error.message}`))))
+  if (Option.isNone(checkout)) return yield* println("No active account")
+  const checkoutValue = checkout.value
+
+  if (!checkoutValue.checkout_url) {
+    yield* Prompt.log.error("Billing checkout response did not include a checkout URL")
+    return yield* Prompt.outro("Billing checkout was not opened")
+  }
+
+  yield* Prompt.log.info(formatBillingPlanLabel(selectedPlan))
+  yield* Prompt.log.info("Opening: " + checkoutValue.checkout_url)
+  yield* openBrowser(checkoutValue.checkout_url)
+  yield* Prompt.outro("Checkout opened")
+})
+
 export const LoginCommand = effectCmd({
   command: "login [url]",
   describe: false,
@@ -240,6 +308,21 @@ export const OpenCommand = effectCmd({
   }),
 })
 
+export const BillingCommand = effectCmd({
+  command: "billing [plan]",
+  describe: false,
+  instance: false,
+  builder: (yargs) =>
+    yargs.positional("plan", {
+      describe: "billing plan id",
+      type: "string",
+    }),
+  handler: Effect.fn("Cli.account.billing")(function* (args) {
+    UI.empty()
+    yield* Effect.orDie(billingEffect(args.plan as string | undefined))
+  }),
+})
+
 export const ConsoleCommand = cmd({
   command: "console",
   describe: false,
@@ -264,6 +347,10 @@ export const ConsoleCommand = cmd({
       .command({
         ...OpenCommand,
         describe: "open active console account",
+      })
+      .command({
+        ...BillingCommand,
+        describe: "open credit billing checkout",
       })
       .demandCommand(),
   async handler() {},
