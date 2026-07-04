@@ -1,0 +1,66 @@
+name: CodexShare Desktop Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codexshare/branding-poc
+    paths:
+      - ".github/workflows/codexshare-desktop-windows.yml"
+      - "package.json"
+      - "bun.lock"
+      - "packages/core/**"
+      - "packages/opencode/**"
+      - "packages/desktop/**"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    name: Build Windows installer artifact
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      OPENCODE_CHANNEL: dev
+      OPENCODE_VERSION: 1.17.13
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+
+      - name: Setup Bun and install dependencies
+        uses: ./.github/actions/setup-bun
+
+      - name: Prepare desktop assets and embedded CLI
+        run: bun ./scripts/prepare.ts
+        working-directory: packages/desktop
+
+      - name: Build Electron renderer/main
+        run: bun run build
+        working-directory: packages/desktop
+
+      - name: Package unsigned Windows installer
+        run: npx electron-builder --win --publish never --config electron-builder.config.ts
+        working-directory: packages/desktop
+
+      - name: List packaged files
+        shell: pwsh
+        run: |
+          Get-ChildItem -LiteralPath packages/desktop/dist -Recurse |
+            Select-Object FullName,Length |
+            Format-Table -AutoSize
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codexshare-desktop-windows
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.blockmap
+            packages/desktop/dist/latest*.yml
+            packages/desktop/dist/builder-debug.yml
