@@ -29,9 +29,45 @@ import { useServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { CustomProviderForm } from "./dialog-custom-provider"
+import { usePlatform } from "@/context/platform"
 
 const serviceConsoleUrl = () =>
   (import.meta.env.VITE_YOURSERVICE_CONSOLE_URL || "https://llms.ai.kr/opencode-gateway").replace(/\/+$/, "")
+
+const serviceUrl = (path: string) => `${serviceConsoleUrl()}${path.startsWith("/") ? path : `/${path}`}`
+
+type CodexShareLoginStatus = "idle" | "starting" | "waiting" | "connected" | "error"
+
+type CodexShareDeviceCodeResponse = {
+  device_code?: string
+  user_code?: string
+  verification_uri?: string
+  verification_uri_complete?: string
+  expires_in?: number
+  interval?: number
+  error?: string
+  error_description?: string
+}
+
+type CodexShareTokenResponse = {
+  access_token?: string
+  api_token?: string
+  token_type?: string
+  expires_in?: number
+  refresh_token?: string
+  error?: string
+  error_description?: string
+}
+
+async function readCodexShareJson<T>(response: Response) {
+  const text = await response.text()
+  const data = text ? (JSON.parse(text) as T) : ({} as T)
+  if (!response.ok) {
+    const error = data as CodexShareTokenResponse
+    throw new Error(error.error_description || error.error || `CodexShare gateway returned ${response.status}`)
+  }
+  return data
+}
 
 const CUSTOM_ID = "_custom"
 
@@ -177,15 +213,22 @@ function ProviderConnection(props: {
   const serverSDK = useServerSDK()
   const language = useLanguage()
   const providers = useProviders(props.directory)
+  const platform = usePlatform()
 
   const alive = { value: true }
   const timer = { current: undefined as ReturnType<typeof setTimeout> | undefined }
+  const codexShareTimer = { current: undefined as ReturnType<typeof setTimeout> | undefined }
 
   onCleanup(() => {
     alive.value = false
-    if (timer.current === undefined) return
-    clearTimeout(timer.current)
-    timer.current = undefined
+    if (timer.current !== undefined) {
+      clearTimeout(timer.current)
+      timer.current = undefined
+    }
+    if (codexShareTimer.current !== undefined) {
+      clearTimeout(codexShareTimer.current)
+      codexShareTimer.current = undefined
+    }
   })
 
   const provider = createMemo(
@@ -554,6 +597,203 @@ function ProviderConnection(props: {
     )
   }
 
+  const [codexShareLogin, setCodexShareLogin] = createStore({
+    status: "idle" as CodexShareLoginStatus,
+    userCode: "",
+    error: undefined as string | undefined,
+  })
+
+  const codexShareLoginBusy = createMemo(
+    () => codexShareLogin.status === "starting" || codexShareLogin.status === "waiting",
+  )
+
+  function clearCodexSharePoll() {
+    if (codexShareTimer.current === undefined) return
+    clearTimeout(codexShareTimer.current)
+    codexShareTimer.current = undefined
+  }
+
+  async function saveCodexShareToken(token: string, setFormValue?: (value: string) => void) {
+    setFormValue?.(token)
+    await serverSDK().client.auth.set({
+      providerID: props.provider,
+      auth: {
+        type: "api",
+        key: token,
+        metadata: {
+          source: "codexshare-google-oauth",
+          gateway: serviceConsoleUrl(),
+        },
+      },
+    })
+    setCodexShareLogin("status", "connected")
+    await complete()
+  }
+
+  async function pollCodexShareToken(
+    deviceCode: string,
+    intervalSeconds: number,
+    expiresAt: number,
+    setFormValue?: (value: string) => void,
+  ) {
+    clearCodexSharePoll()
+    if (!alive.value) return
+
+    if (Date.now() >= expiresAt) {
+      setCodexShareLogin({
+        status: "error",
+        error: "승인 코드가 만료됐어요. 다시 Google 로그인을 눌러 주세요.",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(serviceUrl("/auth/device/token"), {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          client_id: "codexshare-desktop",
+          device_code: deviceCode,
+        }),
+      })
+      const text = await response.text()
+      const payload = text ? (JSON.parse(text) as CodexShareTokenResponse) : ({} as CodexShareTokenResponse)
+      const gatewayToken = payload.api_token || payload.access_token
+      if (gatewayToken) {
+        await saveCodexShareToken(gatewayToken, setFormValue)
+        return
+      }
+
+      if (payload.error === "authorization_pending" || payload.error === "slow_down") {
+        const nextInterval = payload.error === "slow_down" ? intervalSeconds + 2 : intervalSeconds
+        codexShareTimer.current = setTimeout(
+          () => void pollCodexShareToken(deviceCode, nextInterval, expiresAt, setFormValue),
+          Math.max(1, nextInterval) * 1000,
+        )
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error_description || payload.error || `CodexShare gateway returned ${response.status}`)
+      }
+      throw new Error(payload.error_description || payload.error || "CodexShare 로그인이 완료되지 않았어요.")
+    } catch (error) {
+      setCodexShareLogin({
+        status: "error",
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  async function handleCodexShareLogin(setFormValue?: (value: string) => void) {
+    clearCodexSharePoll()
+    setCodexShareLogin({
+      status: "starting",
+      userCode: "",
+      error: undefined,
+    })
+
+    try {
+      const response = await fetch(serviceUrl("/auth/device/code"), {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: "codexshare-desktop",
+        }),
+      })
+      const device = await readCodexShareJson<CodexShareDeviceCodeResponse>(response)
+      if (!device.device_code || !device.user_code) throw new Error("게이트웨이에서 승인 코드를 받지 못했어요.")
+
+      const verificationPath = device.verification_uri_complete || `/activate?user_code=${device.user_code}`
+      const verificationUrl = verificationPath.startsWith("http") ? verificationPath : serviceUrl(verificationPath)
+
+      setCodexShareLogin({
+        status: "waiting",
+        userCode: device.user_code,
+        error: undefined,
+      })
+      platform.openLink(verificationUrl)
+      await pollCodexShareToken(
+        device.device_code,
+        device.interval ?? 3,
+        Date.now() + Math.max(30, device.expires_in ?? 600) * 1000,
+        setFormValue,
+      )
+    } catch (error) {
+      setCodexShareLogin({
+        status: "error",
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  function CodexShareLoginCard(props: { setFormValue?: (value: string) => void }) {
+    return (
+      <div class="flex flex-col gap-4 rounded-[14px] border border-border-weak-base bg-surface-raised-base p-4 shadow-xs-border-base">
+        <div class="flex items-start gap-3">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-background-stronger text-14-medium text-text-strong shadow-xs-border-base">
+            C
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-14-medium text-text-strong">CodexShare 계정으로 연결</div>
+            <div class="mt-1 text-13-regular text-text-base">
+              Google 계정으로 로그인하면 {serviceConsoleUrl().replace(/^https?:\/\//, "")} 크레딧을 이 데스크톱 앱에서 바로 사용합니다.
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="large"
+            variant="primary"
+            disabled={codexShareLoginBusy()}
+            onClick={() => handleCodexShareLogin(props.setFormValue)}
+          >
+            <span class="inline-flex items-center gap-2">
+              <Show when={codexShareLoginBusy()}>
+                <Spinner class="size-3.5" />
+              </Show>
+              {codexShareLogin.status === "waiting" ? "브라우저 승인 대기 중" : "Google로 로그인"}
+            </span>
+          </Button>
+          <Button type="button" size="large" variant="ghost" onClick={() => platform.openLink(serviceUrl("/login"))}>
+            로그인 페이지 열기
+          </Button>
+        </div>
+
+        <Switch>
+          <Match when={codexShareLogin.status === "waiting"}>
+            <div class="rounded-[10px] border border-border-weaker-base bg-background-base px-3 py-2 text-13-regular text-text-base">
+              브라우저에서 Google 로그인을 완료하세요. 승인 코드{" "}
+              <span class="font-mono text-text-strong">{codexShareLogin.userCode}</span> 연결을 기다리는 중입니다.
+            </div>
+          </Match>
+          <Match when={codexShareLogin.status === "error"}>
+            <div class="rounded-[10px] border border-border-weak-base bg-background-base px-3 py-2 text-13-regular text-text-base">
+              {codexShareLogin.error}
+            </div>
+          </Match>
+          <Match when={codexShareLogin.status === "connected"}>
+            <div class="rounded-[10px] border border-border-weak-base bg-background-base px-3 py-2 text-13-regular text-text-base">
+              연결되었습니다. 앱에 토큰을 저장하고 세션을 새로고침합니다.
+            </div>
+          </Match>
+          <Match when={true}>
+            <div class="text-12-regular text-text-weak">또는 아래에 게이트웨이 API 토큰을 직접 붙여넣어도 됩니다.</div>
+          </Match>
+        </Switch>
+      </div>
+    )
+  }
+
   function ApiAuthView() {
     const [formStore, setFormStore] = createStore({
       value: "",
@@ -588,17 +828,7 @@ function ProviderConnection(props: {
       <div class="flex flex-col gap-6">
         <Switch>
           <Match when={provider().id === "opencode"}>
-            <div class="flex flex-col gap-4">
-              <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line1")}</div>
-              <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line2")}</div>
-              <div class="text-14-regular text-text-base">
-                {language.t("provider.connect.opencodeZen.visit.prefix")}
-                <Link href={`${serviceConsoleUrl()}/zen`} tabIndex={-1}>
-                  {`${serviceConsoleUrl()}/zen`}
-                </Link>
-                {language.t("provider.connect.opencodeZen.visit.suffix")}
-              </div>
-            </div>
+            <CodexShareLoginCard setFormValue={(value) => setFormStore("value", value)} />
           </Match>
           <Match when={true}>
             <div class="text-14-regular text-text-base">
